@@ -1,43 +1,147 @@
-pragma solidity ^0.8.0;
+pragma solidity >=0.4.22 <0.9.0;
+// pragma experimental ABIEncoderV2;
 
-contract GeoLogixContract {
-    mapping(address => uint256) public driverBalances;
-    mapping(address => bool) public isInZone;
-    
-    event PaymentProcessed(address indexed driver, uint256 amount);
-    event ZoneStatusUpdated(address indexed driver, bool isInZone);
-    
-    // Modifier to check if the driver is within the designated zone
-    modifier onlyInZone {
-        require(isInZone[msg.sender], "Driver is not within the designated zone");
-        _;
+contract RefundByLocation{
+    struct Employee{
+        // uint id;
+        string name;
+        address employee_address;
+    }
+    struct Employer{
+        // uint id;
+        string name;
+        address employer_address;
+    }
+
+    struct Employee_Location_info{
+        address employee_address;
+        uint contract_id;
+        uint coord_long;
+        uint lng_offset;
+        uint coord_lat;
+        uint lat_offset;
+        uint distance_from_contract_coord;
+        string timestamp;
+        bool status;
+    }
+
+    struct single_contract_info{
+        uint id;
+        address employee_address;
+        address employer_address;
+        uint coord_long;
+        uint lng_offset;
+        uint coord_lat;
+        uint lat_offset;
+        uint radius;
     }
     
-    // Function to update the driver's zone status
-    function updateZoneStatus(bool _isInZone) public {
-        isInZone[msg.sender] = _isInZone;
-        emit ZoneStatusUpdated(msg.sender, _isInZone);
-    }
+    Employee[] public employees;
+    Employer[] public employers;
+    uint public employercount;
+    uint public employeecount;
+
+    single_contract_info[] public contract_infos;
+    uint public contract_info_count;
+
+    Employee_Location_info[] public employee_location_infos;
+    uint public employee_location_infos_count;
+
     
-    // Function to process payment based on compliance with the designated zone
-    function processPayment(uint256 amount) public onlyInZone {
-        require(driverBalances[msg.sender] >= amount, "Insufficient balance");
+
+    function init_employer(string memory _name, address a) public{
+        employers.push(Employer(_name,a));
+        employercount ++;
+    }
+
+    function init_employee(string memory _name, address a) public{
+        employees.push(Employee(_name, a));
+        employeecount++;
+    }
+
+    function create_employee_location_info(uint contract_id, address _employee_address, 
+            uint[2] memory _lat, uint[2] memory _lng,
+            string memory _timestamp, bool _status, uint _distance
+        ) public returns(bool){
+        // single_contract_info memory contract_info = contract_infos[contract_id[0]];
+        // if(contract_info.id > 0){
+        Employee memory emplee;
+        bool is_employee = false;
+        for(uint j=0;j<employeecount;j++){
+            if(employees[j].employee_address == _employee_address){
+                emplee = employees[j];
+                is_employee = true;
+                break;
+            }
+        }
+        if(!is_employee){
+            return false;
+        }
+        else{
+            employee_location_infos.push(
+                Employee_Location_info(
+                    _employee_address,
+                    contract_id,
+                    _lng[0],
+                    _lng[1],
+                    _lat[0],
+                    _lat[1],
+                    _distance,
+                    _timestamp,
+                    _status
+                )
+            );
+            employee_location_infos_count++;
+        }
+        // }
+        // else{
+        //     return false;
+        // }
+        return true;
+    }
+
+    function create_contract(address _employer_address, address _employee_address, uint[2] memory lat, uint[2] memory lng, uint radius) public{
+        Employer memory emplr;
+        bool is_employer = false;
+        for(uint i=0;i<employercount;i++){
+            if (employers[i].employer_address == _employer_address){
+                emplr = employers[i];
+                is_employer = true;
+                break;
+            }
+        }
+        if(!is_employer){
+            // return false;
+        }
+        Employee memory emplee;
+        bool is_employee = false;
+        for(uint j=0;j<employeecount;j++){
+            if(employees[j].employee_address == _employee_address){
+                emplee = employees[j];
+                is_employee = true;
+                break;
+            }
+        }
+        if(!is_employee){
+            emplee = Employee("your name", _employee_address);
+            employees.push(emplee);
+            employeecount++;
+
+        }
+        contract_infos.push(
+            single_contract_info(
+                contract_info_count,
+                _employee_address,
+                _employer_address,
+                lng[0],
+                lng[1],
+                lat[0],
+                lat[1],
+                radius
+            )
+        );
+        contract_info_count++;
         
-        // Perform payment processing logic here
-        // For simplicity, let's assume the payment is transferred in Ether
-        driverBalances[msg.sender] -= amount;
-        payable(msg.sender).transfer(amount);
-        
-        emit PaymentProcessed(msg.sender, amount);
-    }
-    
-    // Function to deposit funds into the driver's account
-    function deposit() public payable {
-        driverBalances[msg.sender] += msg.value;
-    }
-    
-    // Function to retrieve the driver's balance
-    function getBalance() public view returns (uint256) {
-        return driverBalances[msg.sender];
+        // return true;
     }
 }
